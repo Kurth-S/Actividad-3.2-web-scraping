@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eCommerce-X | Gestión de Inventario</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function App() {
+            const [isLoggedIn, setIsLoggedIn] = useState(false);
+            const [productos, setProductos] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [user, setUser] = useState(null);
+            const [loginData, setLoginData] = useState({ username: '', password: '' });
+
+            // 1. Lógica de Autenticación
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                try {
+                    const response = await fetch('http://localhost:5000/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(loginData)
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        setIsLoggedIn(true);
+                        setUser(data.user);
+                        fetchProductos();
+                    } else {
+                        alert(data.message || "Error de login");
+                    }
+                } catch (err) {
+                    alert("No se pudo conectar con el backend (app.py)");
+                }
+            };
+
+            // 2. Obtención de Productos (Consumo de tu API de Scraping)
+            const fetchProductos = async () => {
+                setLoading(true);
+                try {
+                    const response = await fetch('http://localhost:5000/api/productos');
+                    const data = await response.json();
+                    setProductos(data);
+                } catch (err) {
+                    console.error("Error cargando productos", err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            if (!isLoggedIn) {
+                return (
+                    <div class="min-h-screen flex items-center justify-center bg-gray-100">
+                        <div class="bg-white p-8 rounded-lg shadow-md w-96 border-t-4 border-pink-500">
+                            <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">eCommerce-X Login</h2>
+                            <form onSubmit={handleLogin}>
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-700">Usuario</label>
+                                    <input type="text" class="w-full p-2 border rounded mt-1" 
+                                           onChange={(e) => setLoginData({...loginData, username: e.target.value})} required />
+                                </div>
+                                <div class="mb-6">
+                                    <label class="block text-sm font-medium text-gray-700">Contraseña</label>
+                                    <input type="password" class="w-full p-2 border rounded mt-1" 
+                                           onChange={(e) => setLoginData({...loginData, password: e.target.value})} required />
+                                </div>
+                                <button type="submit" class="w-full bg-pink-500 text-white py-2 rounded hover:bg-pink-600 transition">
+                                    Ingresar al Sistema
+                                </button>
+                            </form>
+                            <p class="text-xs text-center mt-4 text-gray-500">Credenciales: admin / 1234</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div>
+                    {/* Navbar */}
+                    <nav class="bg-white shadow-sm border-b px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+                        <h1 class="text-xl font-bold text-pink-600"><i class="fas fa-box-open mr-2"></i>Dashboard Inventario</h1>
+                        <div class="flex items-center gap-4">
+                            <span class="text-sm text-gray-600">Bienvenido, <strong>{user}</strong></span>
+                            <button onClick={() => setIsLoggedIn(false)} class="text-sm bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">Salir</button>
+                        </div>
+                    </nav>
+
+                    {/* Header Area */}
+                    <header class="p-6 bg-white border-b">
+                        <div class="max-w-7xl mx-auto flex justify-between items-center">
+                            <div>
+                                <h2 class="text-2xl font-semibold text-gray-800">Catálogo de Productos</h2>
+                                <p class="text-sm text-gray-500 italic">Sincronizado desde API externa (Scraping okwu.cl)</p>
+                            </div>
+                            <button onClick={fetchProductos} class="bg-blue-500 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-blue-600">
+                                <i class={`fas fa-sync ${loading ? 'animate-spin' : ''}`}></i> Sincronizar Stock
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Product Grid */}
+                    <main class="p-6 max-w-7xl mx-auto">
+                        {loading ? (
+                            <div class="text-center py-20 text-gray-500">Cargando catálogo...</div>
+                        ) : (
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                {productos.map(p => (
+                                    <div key={p.id_interno} class="bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition">
+                                        <img src={p.imagen} alt={p.nombre} class="h-48 w-full object-cover" />
+                                        <div class="p-4">
+                                            <h3 class="font-bold text-gray-800 truncate" title={p.nombre}>{p.nombre}</h3>
+                                            <div class="mt-2 flex justify-between items-center">
+                                                <div>
+                                                    <span class="text-lg font-bold text-pink-600">${p.precio_regular.toLocaleString()}</span>
+                                                    {p.precio_oferta && <span class="text-xs line-through text-gray-400 ml-2">${p.precio_regular.toLocaleString()}</span>}
+                                                </div>
+                                                <div class={`text-xs px-2 py-1 rounded ${p.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                    Stock: {p.stock}
+                                                </div>
+                                            </div>
+                                            <button class="w-full mt-4 border border-pink-500 text-pink-500 py-1.5 rounded-lg hover:bg-pink-50 transition text-sm font-medium">
+                                                Gestionar Pedido
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
